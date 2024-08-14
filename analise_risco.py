@@ -3,43 +3,40 @@ import pandas as pd
 import scipy
 
 
-def calcular_vol(cota_fundo: pd.Series) -> float:
+def calcular_vol(retornos: pd.Series) -> float:
     """
     Calcula a volatilidade anualizada de uma série temporal de cotas de um fundo.
 
     Args:
-    cota_fundo (pd.Series): Série temporal das cotas do fundo.
+    retornos (pd.Series): Série temporal dos retornos do fundo.
     """
-    retornos = cota_fundo.pct_change().dropna()
     vol = retornos.std() * np.sqrt(252)
     return vol
 
 
-def calcular_var_hist(cota_fundo: pd.Series, alpha: int = 95, days: int = 1) -> float:
+def calcular_var_hist(retornos: pd.Series, alpha: int = 95, days: int = 1) -> float:
     """
     Calcula o Valor em Risco (VaR) histórico de uma série temporal de cotas de um fundo.
 
     Args:
-    cota_fundo (pd.Series): Série temporal das cotas do fundo.
+    retornos (pd.Series): Série temporal dos retornos do fundo.
     alpha (int, opcional): Percentil de confiança (padrão é 95).
     days (int, opcional): Número de dias para o qual o VaR é calculado (padrão é 1).
     """
-    retornos = cota_fundo.pct_change().dropna().to_list()
     value_at_risk = np.percentile(retornos, 100-alpha)
     return value_at_risk * np.sqrt(days)
 
 
-def calcular_var_param(cota_fundo: pd.Series, alpha: int = 95, days: int = 1) -> float:
+def calcular_var_param(retornos: pd.Series, alpha: int = 95, days: int = 1) -> float:
     """
     Calcula o Valor em Risco (VaR) paramétrico, utilizando a distribuição normal,
     de uma série temporal de cotas de um fundo.
 
     Args:
-    cota_fundo (pd.Series): Série temporal das cotas do fundo.
+    retornos (pd.Series): Série temporal dos retornos do fundo.
     alpha (int, opcional): Percentil de confiança (padrão é 95).
     days (int, opcional): Número de dias para o qual o VaR é calculado (padrão é 1).
     """
-    retornos = cota_fundo.pct_change().dropna()
     alpha = 1-(alpha/100)
     mu = retornos.mean()
     sig = retornos.std()

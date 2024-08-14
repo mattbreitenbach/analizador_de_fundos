@@ -37,6 +37,7 @@ if fundos_multiselect:
 else:
     cotas = cotas[random.sample(lista_de_fundos, 5)]
 
+retornos = cotas.pct_change().dropna()
 
 #Selecionar a página desejada
 paginas_disponiveis = ["Retorno", "Retorno X Volatilidade", "Drawdown", "VaR"]
@@ -66,11 +67,11 @@ if pagina_select == "Retorno":
 
 
 if pagina_select == "Retorno X Volatilidade":
-    retornos = cotas.iloc[-1]/cotas.iloc[0]
-    cagr = ((retornos**(len(retornos)/252))-1).multiply(100)
+    retornos_no_periodo = cotas.iloc[-1]/cotas.iloc[0]
+    cagr = ((retornos_no_periodo**(len(retornos_no_periodo)/252))-1).multiply(100)
     cagr = cagr.round(2)
     cagr.sort_values(ascending=False, inplace=True)
-    volatilidades = cotas.apply(ar.calcular_vol).multiply(100)
+    volatilidades = retornos.apply(ar.calcular_vol).multiply(100)
     volatilidades = volatilidades.round(2)
     df_ret_vol = cagr.to_frame(name="CAGR")
     df_ret_vol["Volatilidade"] = volatilidades
@@ -112,11 +113,10 @@ if pagina_select == "Drawdown":
 if pagina_select == "VaR":
     ic = st.slider("Qual é o Intervalo de Confiança?", min_value=90.0, max_value=100.0, value = 95.0)
 
-    for coluna in cotas.columns:
-        fundo_retorno_serie = cotas[coluna].pct_change().dropna()*100
-        var_hist = ar.calcular_var_hist(cotas[coluna], alpha=ic)*100
-        var_param = ar.calcular_var_param(cotas[coluna], alpha=ic)*100
-        fig = px.histogram(fundo_retorno_serie, x=coluna, nbins=200, histnorm='probability density', title=coluna)
+    for coluna in retornos.columns:
+        var_hist = ar.calcular_var_hist(retornos[coluna], alpha=ic)*100
+        var_param = ar.calcular_var_param(retornos[coluna], alpha=ic)*100
+        fig = px.histogram(retornos[coluna]*100, x=coluna, nbins=200, histnorm='probability density', title=coluna)
 
         fig.add_trace(go.Scatter(x=[var_hist, var_hist], y=[0, 0.3], mode='lines', name='VaR histórico', line=dict(color='red', width=2)))
         fig.add_trace(go.Scatter(x=[var_param, var_param], y=[0, 0.3], mode='lines', name='VaR Paramétrico', line=dict(color='blue', width=2)))
