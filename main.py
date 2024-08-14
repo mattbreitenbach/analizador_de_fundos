@@ -5,6 +5,7 @@ import random
 import numpy as np
 import pandas as pd
 import plotly.express as px
+import plotly.figure_factory as ff
 import plotly.graph_objects as go
 import streamlit as st
 
@@ -31,7 +32,7 @@ fundos_multiselect = st.multiselect("Selecione até 7 fundos", tuple(lista_de_fu
 if fundos_multiselect:
     if len(fundos_multiselect) > 7:
         st.text("Selecione até 7 fundos.")
-        cotas = cotas[random.sample(lista_de_fundos, 5)]
+        cotas = cotas[random.sample(lista_de_fundos, 7)]
     else:
         cotas = cotas[fundos_multiselect]
 else:
@@ -40,7 +41,7 @@ else:
 retornos = cotas.pct_change().dropna()
 
 #Selecionar a página desejada
-paginas_disponiveis = ["Retorno", "Retorno X Volatilidade", "Drawdown", "VaR"]
+paginas_disponiveis = ["Retorno", "Correlação", "Retorno X Volatilidade", "Drawdown", "VaR"]
 pagina_select = st.selectbox("Selecionar Página", tuple(paginas_disponiveis), label_visibility="collapsed", placeholder="Páginas")
 
 
@@ -65,6 +66,27 @@ if pagina_select == "Retorno":
     )
     st.plotly_chart(fig)
 
+if pagina_select == "Correlação":
+    retornos.columns = [col[:15] for col in retornos.columns]
+    matriz_corr = retornos.corr()
+
+    corr_fig = px.imshow(matriz_corr, color_continuous_scale='Blues', text_auto=True)
+    corr_fig.update_layout(width=800, height=800)
+    st.plotly_chart(corr_fig) 
+
+    dendro_fig = ff.create_dendrogram(retornos.T, color_threshold = 0.5, labels=retornos.columns.tolist())
+    dendro_fig.update_traces(line_width=5)
+    dendro_fig.update_layout(
+        width=800,
+        height=800,
+        title="Dendrograma de Correlação entre Fundos",
+        yaxis=dict(
+            title='',
+            showticklabels=False),
+        xaxis=dict(
+            tickangle=-45)
+        )
+    st.plotly_chart(dendro_fig)
 
 if pagina_select == "Retorno X Volatilidade":
     retornos_no_periodo = cotas.iloc[-1]/cotas.iloc[0]
