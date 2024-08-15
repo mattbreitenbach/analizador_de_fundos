@@ -71,7 +71,7 @@ if pagina_select == "Correlação":
     matriz_corr = retornos.corr()
 
     corr_fig = px.imshow(matriz_corr, color_continuous_scale='Blues', text_auto=True)
-    corr_fig.update_layout(width=800, height=800)
+    corr_fig.update_layout(width=800, height=800, xaxis=dict( tickangle=-70))
     st.plotly_chart(corr_fig) 
 
     dendro_fig = ff.create_dendrogram(retornos.T, color_threshold = 0.5, labels=retornos.columns.tolist())
@@ -84,7 +84,7 @@ if pagina_select == "Correlação":
             title='',
             showticklabels=False),
         xaxis=dict(
-            tickangle=-45)
+            tickangle=-70)
         )
     st.plotly_chart(dendro_fig)
 
@@ -99,9 +99,9 @@ if pagina_select == "Retorno X Volatilidade":
     df_ret_vol["Volatilidade"] = volatilidades
     df_ret_vol["Fundo"] = df_ret_vol.index
 
-    fig = px.scatter(df_ret_vol, x="Volatilidade", y="CAGR", text="Fundo", title="Retorno e Volatilidade")
-    fig.update_traces(textposition="top center")
-    st.plotly_chart(fig)    
+    fig_rxv = px.scatter(df_ret_vol, x="Volatilidade", y="CAGR", text="Fundo", title="Retorno e Volatilidade")
+    fig_rxv.update_traces(textposition="top center")
+    st.plotly_chart(fig_rxv)    
 
     st.dataframe(df_ret_vol.style.format({"CAGR": "{:,.2f}%", "Volatilidade": "{:,.2f}%"}),
                 width=800,
@@ -109,6 +109,27 @@ if pagina_select == "Retorno X Volatilidade":
                 column_order=("Fundo", "CAGR", "Volatilidade"),
                 hide_index=True)
     
+    jm_tamanho = st.slider("Qual é o tamanho da janela móvel desejada?", min_value=21, max_value=252, value=21*6)
+    jm_volatilidade = retornos.rolling(jm_tamanho).apply(ar.calcular_vol).multiply(100)
+    jm_volatilidade = jm_volatilidade.dropna()
+    fig_vol = go.Figure()
+    for coluna in jm_volatilidade.columns:
+        fig_vol.add_trace(go.Scatter(x=jm_volatilidade.index, y=jm_volatilidade[coluna], mode="lines", name=coluna[0:15]))
+    
+    fig_vol.update_layout(
+        title="Volatilidade dos Fundos",
+        xaxis_title="Data",
+        yaxis_title="Vol",
+        hovermode='x',
+        legend=dict(
+            orientation='h',
+            yanchor='bottom',  
+            y=1.02,
+            xanchor='right', 
+            x=1)
+    )
+    st.plotly_chart(fig_vol)
+
 
 if pagina_select == "Drawdown":
     drawdown = cotas.apply(ar.calcular_drawdown_hist).multiply(100)
