@@ -13,6 +13,18 @@ def calcular_vol(retornos: pd.Series) -> float:
     vol = retornos.std() * np.sqrt(252)
     return vol
 
+def calcular_vol_portfolio(pesos: np.array, matriz_cov: pd.DataFrame) -> float:
+    """
+    Calcula a volatilidade anualizada de um portfólio, dado os pesos e a matriz de covariancia.
+
+    Args:
+    pesos (np.array): 
+    matriz_cov: 
+    """
+    vol = np.sqrt(pesos.T.dot(matriz_cov).dot(pesos))
+    vol = vol * np.sqrt(252)
+    return vol
+
 
 def calcular_var_hist(retornos: pd.Series, alpha: int = 95, days: int = 1) -> float:
     """
@@ -65,4 +77,3 @@ def calcular_drawdown_hist(cota_fundo: pd.Series) -> pd.Series:
     
     drawdown_series = pd.Series(drawdown_hist, index=cota_fundo.index)
     return drawdown_series
-
