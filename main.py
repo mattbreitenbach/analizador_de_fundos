@@ -40,7 +40,6 @@ else:
     cotas = cotas[random.sample(lista_de_fundos, 5)]
 
 retornos = cotas.pct_change().dropna()
-log_retornos = np.log(retornos)
 
 # Selecionar a página desejada
 paginas_disponiveis = ["Retorno",
@@ -134,13 +133,13 @@ if pagina_select == "Retorno X Volatilidade":
     jm_volatilidade = retornos.rolling(
         jm_tamanho).apply(ar.calcular_vol).multiply(100)
     jm_volatilidade = jm_volatilidade.dropna()
+
     fig_vol = go.Figure()
     for coluna in jm_volatilidade.columns:
         fig_vol.add_trace(go.Scatter(x=jm_volatilidade.index,
                                      y=jm_volatilidade[coluna],
                                      mode="lines",
                                      name=coluna[0:15]))
-
     fig_vol.update_layout(
         title="Volatilidade dos Fundos",
         xaxis_title="Data",
@@ -177,7 +176,6 @@ if pagina_select == "Drawdown":
                                   x=1))
     st.plotly_chart(fig)
 
-
 if pagina_select == "VaR":
     ic = st.slider("Qual é o Intervalo de Confiança?",
                    min_value=90.0,
@@ -187,25 +185,23 @@ if pagina_select == "VaR":
     for coluna in retornos.columns:
         var_hist = ar.calcular_var_hist(retornos[coluna], alpha=ic)*100
         var_param = ar.calcular_var_param(retornos[coluna], alpha=ic)*100
+        
         fig = px.histogram(retornos[coluna]*100,
                            x=coluna,
                            nbins=200,
                            histnorm='probability density',
                            title=coluna)
-
         fig.add_trace(go.Scatter(x=[var_hist, var_hist],
                                  y=[0, 0.3], mode='lines',
                                  name='VaR histórico',
                                  line=dict(color='red',
                                            width=2)))
-
         fig.add_trace(go.Scatter(x=[var_param, var_param],
                                  y=[0, 0.3],
                                  mode='lines',
                                  name='VaR Paramétrico',
                                  line=dict(color='blue',
                                            width=2)))
-
         fig.update_layout(xaxis_title='Retorno',
                           yaxis_title='Densidade',
                           showlegend=True)
@@ -237,23 +233,71 @@ if pagina_select == "Markowitz":
         cagr = np.sum(cagr_fundos*pesos)
         retornos_ports[i_port] = cagr
 
-        vol = ar.calcular_vol_portfolio(pesos, cov_fundos)
+        vol = ar.calcular_vol_portfolio(pesos, cov_fundos)*100
         volatilidades_ports[i_port] = vol
 
         sharpe = cagr/vol
         sharpes_ports[i_port] = sharpe
 
+    max_sharpe_index = sharpes_ports.argmax()
+    max_sharpe_pesos = pesos_ports[max_sharpe_index, :]
+    max_ret_index = retornos_ports.argmax()
+    max_ret_pesos = pesos_ports[max_ret_index, :]
+    min_vol_index = volatilidades_ports.argmin()
+    min_vol_pesos = pesos_ports[min_vol_index, :]
+
+    sharpes_ports_round = [round(sharpe, 2) for sharpe in sharpes_ports]
+
     fig_fe = go.Figure()
-    fig_fe.add_trace(go.Scatter(x=volatilidades_ports*100,
+    fig_fe.add_trace(go.Scatter(x=volatilidades_ports,
                                 y=retornos_ports,
+                                text=sharpes_ports_round,
+                                hovertemplate='Sharpe: %{text}<br>Ret: %{y:.2f}% <br>Vol: %{x:.2f}%<extra></extra>',
                                 mode="markers",
-                                name='Portfólios'))
+                                marker=dict(color=sharpes_ports)))
+    fig_fe.add_trace(go.Scatter(x=[volatilidades_ports[max_sharpe_index]],
+                                y=[retornos_ports[max_sharpe_index]],
+                                mode="markers+text",
+                                marker=dict(size=12,
+                                            color='red',
+                                            symbol='circle'),
+                                text=[f"MAX {sharpes_ports_round[max_sharpe_index]}"],
+                                textfont=dict(color='purple'),
+                                hovertemplate='Sharpe: %{text}<br>Ret: %{y:.2f}% <br>Vol: %{x:.2f}%<extra></extra>'))
     fig_fe.update_layout(title="Fronteira Eficiente",
                          xaxis_title="Volatilidade",
                          yaxis_title="Retorno",
-                         hovermode='x')
+                         showlegend=False)
     st.plotly_chart(fig_fe)
 
-    max_sharpe_index = sharpes_ports.argmax()
-    max_sharpe_portfolio = pesos_ports[max_sharpe_index, :]
-    print(max_sharpe_portfolio)
+    pesos_df = pd.DataFrame({"Pesos Min Vol": min_vol_pesos*100,
+                             "Pesos Max Sharpe": max_sharpe_pesos*100,
+                             "Pesos Max Ret": max_ret_pesos*100,},
+                            index=retornos.columns)
+    st.dataframe(pesos_df.style.format({"Pesos Min Vol": "{:,.2f}%",
+                                        "Pesos Max Sharpe": "{:,.2f}%",
+                                        "Pesos Max Ret": "{:,.2f}%"}) )
+    
+    df_retornos_port = retornos.dot(pesos_df.divide(100))
+    retornos_acumulados = (1 + df_retornos_port).cumprod()
+    df_ports = retornos_acumulados / retornos_acumulados.iloc[0]
+    df_ports = df_ports.subtract(1).multiply(100)
+    df_ports.columns = [col[6:] for col in df_ports.columns]
+
+    ret_fig = go.Figure()
+    for coluna in df_ports.columns:
+        ret_fig.add_trace(go.Scatter(x=df_ports.index,
+                                 y=df_ports[coluna],
+                                 mode="lines",
+                                 name=coluna))
+
+    ret_fig.update_layout(title="Retorno dos Portfólios",
+                      xaxis_title="Data",
+                      yaxis_title="Retornos",
+                      hovermode='x',
+                      legend=dict(orientation='h',
+                                  yanchor='bottom',
+                                  y=1,
+                                  xanchor='right',
+                                  x=1))
+    st.plotly_chart(ret_fig)
