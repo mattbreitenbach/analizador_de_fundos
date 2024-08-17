@@ -185,7 +185,7 @@ if pagina_select == "VaR":
     for coluna in retornos.columns:
         var_hist = ar.calcular_var_hist(retornos[coluna], alpha=ic)*100
         var_param = ar.calcular_var_param(retornos[coluna], alpha=ic)*100
-        
+
         fig = px.histogram(retornos[coluna]*100,
                            x=coluna,
                            nbins=200,
@@ -214,30 +214,8 @@ if pagina_select == "Markowitz":
                              value=4000,
                              step=1000)
 
-    retornos_no_periodo = cotas.iloc[-1]/cotas.iloc[0]
-    cagr_fundos = (
-        (retornos_no_periodo**(len(retornos_no_periodo)/252))-1).multiply(100)
-    volatilidades_fundos = retornos.apply(ar.calcular_vol)
-    cov_fundos = retornos.cov()
-
-    pesos_ports = np.zeros((n_simulacoes, retornos.shape[1]))
-    retornos_ports = np.zeros(n_simulacoes)
-    volatilidades_ports = np.zeros(n_simulacoes)
-    sharpes_ports = np.zeros(n_simulacoes)
-
-    for i_port in range(n_simulacoes):
-        pesos = np.array(np.random.random(retornos.shape[1]))
-        pesos = pesos/sum(pesos)
-        pesos_ports[i_port, :] = pesos
-
-        cagr = np.sum(cagr_fundos*pesos)
-        retornos_ports[i_port] = cagr
-
-        vol = ar.calcular_vol_portfolio(pesos, cov_fundos)*100
-        volatilidades_ports[i_port] = vol
-
-        sharpe = cagr/vol
-        sharpes_ports[i_port] = sharpe
+    pesos_ports, retornos_ports, volatilidades_ports, sharpes_ports = ar.monte_carlo_portfolios(
+        retornos, n_simulacoes)
 
     max_sharpe_index = sharpes_ports.argmax()
     max_sharpe_pesos = pesos_ports[max_sharpe_index, :]
@@ -261,7 +239,8 @@ if pagina_select == "Markowitz":
                                 marker=dict(size=12,
                                             color='red',
                                             symbol='circle'),
-                                text=[f"MAX {sharpes_ports_round[max_sharpe_index]}"],
+                                text=[
+                                    f"MAX {sharpes_ports_round[max_sharpe_index]}"],
                                 textfont=dict(color='purple'),
                                 hovertemplate='Sharpe: %{text}<br>Ret: %{y:.2f}% <br>Vol: %{x:.2f}%<extra></extra>'))
     fig_fe.update_layout(title="Fronteira Eficiente",
@@ -272,12 +251,12 @@ if pagina_select == "Markowitz":
 
     pesos_df = pd.DataFrame({"Pesos Min Vol": min_vol_pesos*100,
                              "Pesos Max Sharpe": max_sharpe_pesos*100,
-                             "Pesos Max Ret": max_ret_pesos*100,},
+                             "Pesos Max Ret": max_ret_pesos*100, },
                             index=retornos.columns)
     st.dataframe(pesos_df.style.format({"Pesos Min Vol": "{:,.2f}%",
                                         "Pesos Max Sharpe": "{:,.2f}%",
-                                        "Pesos Max Ret": "{:,.2f}%"}) )
-    
+                                        "Pesos Max Ret": "{:,.2f}%"}))
+
     df_retornos_port = retornos.dot(pesos_df.divide(100))
     retornos_acumulados = (1 + df_retornos_port).cumprod()
     df_ports = retornos_acumulados / retornos_acumulados.iloc[0]
@@ -287,17 +266,17 @@ if pagina_select == "Markowitz":
     ret_fig = go.Figure()
     for coluna in df_ports.columns:
         ret_fig.add_trace(go.Scatter(x=df_ports.index,
-                                 y=df_ports[coluna],
-                                 mode="lines",
-                                 name=coluna))
+                                     y=df_ports[coluna],
+                                     mode="lines",
+                                     name=coluna))
 
     ret_fig.update_layout(title="Retorno dos Portfólios",
-                      xaxis_title="Data",
-                      yaxis_title="Retornos",
-                      hovermode='x',
-                      legend=dict(orientation='h',
-                                  yanchor='bottom',
-                                  y=1,
-                                  xanchor='right',
-                                  x=1))
+                          xaxis_title="Data",
+                          yaxis_title="Retornos",
+                          hovermode='x',
+                          legend=dict(orientation='h',
+                                      yanchor='bottom',
+                                      y=1,
+                                      xanchor='right',
+                                      x=1))
     st.plotly_chart(ret_fig)

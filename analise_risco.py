@@ -78,3 +78,37 @@ def calcular_drawdown_hist(cota_fundo: pd.Series) -> pd.Series:
 
     drawdown_series = pd.Series(drawdown_hist, index=cota_fundo.index)
     return drawdown_series
+
+
+def monte_carlo_portfolios(retornos: pd.Series, n_simulacoes: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Através de milhares de simulações, gera vários portfólios, retornando suas características.
+
+    Args:
+    retornos (pd.Series): Série temporal dos retornos do fundo.
+    n_simulacoes (int): Número de simulações que deverão ser realizadas.
+    """
+    retornos_fundos = retornos.mean()
+    retornos_fundos = retornos_fundos.add(1).pow(252).subtract(1)
+    cov_fundos = retornos.cov()
+
+    pesos_ports = np.zeros((n_simulacoes, retornos.shape[1]))
+    retornos_ports = np.zeros(n_simulacoes)
+    volatilidades_ports = np.zeros(n_simulacoes)
+    sharpes_ports = np.zeros(n_simulacoes)
+
+    for i_port in range(n_simulacoes):
+        pesos = np.array(np.random.random(retornos.shape[1]))
+        pesos = pesos/sum(pesos)
+        pesos_ports[i_port, :] = pesos
+
+        ret = np.sum(retornos_fundos*pesos)
+        retornos_ports[i_port] = ret
+
+        vol = calcular_vol_portfolio(pesos, cov_fundos)*100
+        volatilidades_ports[i_port] = vol
+
+        sharpe = ret/vol
+        sharpes_ports[i_port] = sharpe
+
+    return pesos_ports, retornos_ports, volatilidades_ports, sharpes_ports
